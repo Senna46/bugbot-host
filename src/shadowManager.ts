@@ -767,10 +767,11 @@ export class ShadowManager {
       "The sync was aborted and will be retried on the next polling cycle.",
     ].join("\n\n");
 
-    await this.github.createIssueComment(
+    await this.commentOnce(
       original.owner,
       original.repo,
       original.number,
+      marker,
       body
     );
   }

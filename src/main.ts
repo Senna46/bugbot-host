@@ -233,7 +233,6 @@ class PrShadowDaemon {
 
   private sleep(ms: number): Promise<void> {
     return new Promise((resolve) => {
-      const timer = setTimeout(resolve, ms);
       const checkShutdown = setInterval(() => {
         if (this.isShuttingDown) {
           clearTimeout(timer);
@@ -241,6 +240,10 @@ class PrShadowDaemon {
           resolve();
         }
       }, 1000);
+      const timer = setTimeout(() => {
+        clearInterval(checkShutdown);
+        resolve();
+      }, ms);
     });
   }
 }
@@ -266,7 +269,7 @@ function acquireLock(dbPath: string): string {
       const existingPid = readFileSync(lockPath, "utf-8").trim();
       const pid = parseInt(existingPid, 10);
 
-      if (!isNaN(pid) && isProcessRunning(pid)) {
+      if (!isNaN(pid) && pid !== process.pid && isProcessRunning(pid)) {
         throw new Error(
           `Another daemon instance is already running (PID ${existingPid}, lock: ${lockPath}). ` +
             "Stop the existing instance first."

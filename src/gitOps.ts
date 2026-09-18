@@ -296,7 +296,7 @@ export class GitOps {
   }
 
   async pushBranch(repoDir: string, branchName: string): Promise<void> {
-    await this.execGit(repoDir, ["push", "-u", "origin", branchName]);
+    await this.execGit(repoDir, ["push", "-u", "--force", "origin", branchName]);
   }
 
   async unmergedFiles(repoDir: string): Promise<string[]> {

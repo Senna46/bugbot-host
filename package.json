@@ -1,0 +1,35 @@
+{
+  "name": "pr-shadow",
+  "version": "0.1.0",
+  "description": "Mirror other people's GitHub PRs as Senna46-authored PRs so Cursor Bugbot can review them",
+  "type": "module",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/main.js",
+    "dev": "tsx src/main.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "github",
+    "bugbot",
+    "cursor",
+    "pr-shadow"
+  ],
+  "author": "Senna46",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.9.0",
+    "dotenv": "^17.2.4",
+    "octokit": "^5.0.5"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^25.2.3",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}

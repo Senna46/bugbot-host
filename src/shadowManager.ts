@@ -933,13 +933,16 @@ function inferAdoptedShadowStatus(
   // Adopting an existing hosted PR after the DB record was lost. GitHub only
   // exposes open/closed, so a closed hosted PR is mapped to a resumable pause
   // state (not terminal "closed") so new original commits restart hosting.
-  // An open hosted PR already retargeted onto the original head branch is
-  // "delivering", not "mirroring" - otherwise its base would be forced back
-  // onto the repository default branch.
+  // An open, same-repo hosted PR already retargeted onto the original head
+  // branch is "delivering", not "mirroring" - otherwise its base would be
+  // forced back onto the repository default branch. Fork PRs are never
+  // retargeted (they are closed instead), so this check must not apply to
+  // them: forks commonly reuse the default branch name as their head branch,
+  // which would otherwise make a still-mirroring hosted PR look delivered.
   if (existing.state === "closed") {
     return "closed_no_changes";
   }
-  if (existing.baseRef === original.headRef) {
+  if (!original.isCrossRepo && existing.baseRef === original.headRef) {
     return "delivering";
   }
   return "mirroring";

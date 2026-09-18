@@ -11,7 +11,7 @@ Cursor Bugbot on an Individual plan only reviews pull requests you author. PRs o
 ## What it does
 
 1. Discovers repositories from the same GitHub App installations as Fixooly
-2. For each open, non-draft PR authored by someone other than Senna46, creates a mirror PR
+2. For each **open, recently created**, non-draft PR authored by someone other than Senna46, creates a mirror PR. Closed PRs and PRs that were already open before pr-shadow started are ignored, and accidental historical mirrors are closed.
 3. Syncs later original commits onto the mirror (resolves conflicts with `claude -p`)
 4. Waits until the GitHub check **Cursor Bugbot** is `success` on the mirror HEAD (GitHub Actions is ignored)
 5. Then:
@@ -103,6 +103,7 @@ Optional:
 
 - `SHADOW_AUTHOR_LOGIN` (default `Senna46`)
 - `SHADOW_POLL_INTERVAL` (default `120`)
+- `SHADOW_MIN_PR_CREATED_AT` (ISO 8601; default: the first time this cutoff code runs, so already-open historical PRs are ignored)
 - `SHADOW_WORK_DIR` (default `~/.pr-shadow/repos`)
 - `SHADOW_DB_PATH` (default `~/.pr-shadow/state.db`)
 - `SHADOW_CLAUDE_MODEL`
@@ -114,7 +115,7 @@ Optional:
 flowchart TD
   Poll[Polling loop] --> ListRepos[List GitHub App repos]
   ListRepos --> OpenPrs[List open PRs]
-  OpenPrs --> Filter[Skip Senna46 / bots / drafts / mirrors]
+  OpenPrs --> Filter[Skip closed / historical / Senna46 / bots / drafts / mirrors]
   Filter --> Create[Create pr-shadow/N branch and PR as Senna46]
   Create --> Sync[Sync later original commits]
   Sync --> Bugbot{Cursor Bugbot check success?}
@@ -129,3 +130,4 @@ flowchart TD
 - Mirror PRs are titled `[pr-shadow] #N: ...` and include `<!-- PR_SHADOW_MANAGED -->`
 - The daemon never merges a mirror into `main` / `master`
 - Fork mirrors with fixes are closed so they cannot be merged into the default branch by accident
+- Closed PRs are never mirrored. Already-open historical PRs are not backfilled; accidental mirrors of those PRs are closed.

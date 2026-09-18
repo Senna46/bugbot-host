@@ -89,11 +89,13 @@ export class GitHubClient {
 
   async listOpenPullRequests(
     owner: string,
-    repo: string
+    repo: string,
+    minCreatedAt?: string
   ): Promise<TrackedPullRequest[]> {
-    logger.debug("Listing open pull requests.", { owner, repo });
+    logger.debug("Listing open pull requests.", { owner, repo, minCreatedAt });
 
     const results: TrackedPullRequest[] = [];
+    const cutoffMs = minCreatedAt ? Date.parse(minCreatedAt) : null;
 
     for await (const response of this.userOctokit.paginate.iterator(
       this.userOctokit.rest.pulls.list,
@@ -101,11 +103,25 @@ export class GitHubClient {
         owner,
         repo,
         state: "open",
+        sort: "created",
+        direction: "desc",
         per_page: 100,
       }
     )) {
+      let reachedCutoff = false;
       for (const pr of response.data) {
-        results.push(mapPullRequest(owner, repo, pr));
+        const mapped = mapPullRequest(owner, repo, pr);
+        if (cutoffMs !== null && !Number.isNaN(cutoffMs)) {
+          const createdMs = Date.parse(mapped.createdAt);
+          if (!Number.isNaN(createdMs) && createdMs < cutoffMs) {
+            reachedCutoff = true;
+            break;
+          }
+        }
+        results.push(mapped);
+      }
+      if (reachedCutoff) {
+        break;
       }
     }
 
@@ -386,6 +402,7 @@ type GithubPull = {
   draft?: boolean;
   state: string;
   merged_at: string | null;
+  created_at: string;
   base: { ref: string; repo: { full_name: string } };
   head: {
     ref: string;
@@ -427,6 +444,7 @@ function mapPullRequest(
     headRepoOwner: headRepo?.owner.login ?? owner,
     headRepoName: headRepo?.name ?? repo,
     isCrossRepo,
+    createdAt: pr.created_at,
   };
 }
 

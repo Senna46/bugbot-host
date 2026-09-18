@@ -18,6 +18,7 @@ export interface Config {
   dbPath: string;
   claudeModel: string | null;
   logLevel: LogLevel;
+  minPrCreatedAt: string | null;
 }
 
 export type LogLevel = "debug" | "info" | "warn" | "error";
@@ -43,6 +44,7 @@ export interface TrackedPullRequest {
   headRepoOwner: string;
   headRepoName: string;
   isCrossRepo: boolean;
+  createdAt: string;
 }
 
 export interface RepoRef {

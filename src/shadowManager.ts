@@ -16,6 +16,7 @@ import { logger } from "./logger.js";
 import {
   buildOriginalMarker,
   buildShadowBranchName,
+  isCreatedBeforeCutoff,
 } from "./prMonitor.js";
 import type { StateStore } from "./state.js";
 import type {
@@ -28,6 +29,7 @@ const COMMENT_NO_CHANGES = "<!-- PR_SHADOW_COMMENT: no_changes -->";
 const COMMENT_FORK_FIXES = "<!-- PR_SHADOW_COMMENT: fork_fixes -->";
 const COMMENT_DELIVERING = "<!-- PR_SHADOW_COMMENT: delivering -->";
 const COMMENT_ORIGINAL_CLOSED = "<!-- PR_SHADOW_COMMENT: original_closed -->";
+const COMMENT_TOO_OLD = "<!-- PR_SHADOW_COMMENT: too_old -->";
 
 export class ShadowManager {
   private config: Config;
@@ -55,6 +57,21 @@ export class ShadowManager {
     record: ShadowRecord | null
   ): Promise<void> {
     const repo = repoFullName(original);
+    const minPrCreatedAt = this.requireMinPrCreatedAt();
+
+    if (isCreatedBeforeCutoff(original, minPrCreatedAt)) {
+      if (!record || record.status === "closed") {
+        logger.debug("Skipping historical open PR created before cutoff.", {
+          repo,
+          originalPr: original.number,
+          createdAt: original.createdAt,
+          minPrCreatedAt,
+        });
+        return;
+      }
+      await this.closeBecauseTooOld(original, record, minPrCreatedAt);
+      return;
+    }
 
     if (!record) {
       await this.createShadow(original);
@@ -118,6 +135,13 @@ export class ShadowManager {
       await this.closeBecauseOriginalDone(original, record);
       return;
     }
+
+    const minPrCreatedAt = this.requireMinPrCreatedAt();
+    if (isCreatedBeforeCutoff(original, minPrCreatedAt)) {
+      await this.closeBecauseTooOld(original, record, minPrCreatedAt);
+      return;
+    }
+
     await this.processOriginal(original, record);
   }
 
@@ -680,6 +704,71 @@ export class ShadowManager {
       lastError: null,
       updatedAt: nowIso(),
     });
+  }
+
+  private async closeBecauseTooOld(
+    original: TrackedPullRequest,
+    record: ShadowRecord,
+    minPrCreatedAt: string
+  ): Promise<void> {
+    if (record.status === "closed") {
+      return;
+    }
+
+    logger.info(
+      "Closing shadow PR because the original was already open before the cutoff.",
+      {
+        repo: record.repo,
+        originalPr: record.originalPr,
+        shadowPr: record.shadowPr,
+        createdAt: original.createdAt,
+        minPrCreatedAt,
+      }
+    );
+
+    if (record.shadowPr !== null) {
+      const [owner, repo] = splitRepo(record.repo);
+      const shadowPr = await this.github.getPullRequest(
+        owner,
+        repo,
+        record.shadowPr
+      );
+      if (shadowPr && shadowPr.state === "open") {
+        await this.commentOnce(
+          owner,
+          repo,
+          shadowPr.number,
+          COMMENT_TOO_OLD,
+          [
+            COMMENT_TOO_OLD,
+            "[pr-shadow](https://github.com/Senna46/pr-shadow) only mirrors **newly opened** pull requests.",
+            `This original (#${original.number}) was created at ${original.createdAt}, which is before the cutoff ${minPrCreatedAt}. Closing this mirror without merging.`,
+          ].join("\n\n")
+        );
+        await this.github.updatePullRequest({
+          owner,
+          repo,
+          prNumber: shadowPr.number,
+          state: "closed",
+        });
+      }
+    }
+
+    this.state.upsert({
+      ...record,
+      status: "closed",
+      lastError: `Ignored historical PR created at ${original.createdAt} (cutoff ${minPrCreatedAt})`,
+      updatedAt: nowIso(),
+    });
+  }
+
+  private requireMinPrCreatedAt(): string {
+    if (!this.config.minPrCreatedAt) {
+      throw new Error(
+        "requireMinPrCreatedAt failed: minPrCreatedAt was not resolved before processing PRs."
+      );
+    }
+    return this.config.minPrCreatedAt;
   }
 
   private async closeBecauseOriginalDone(

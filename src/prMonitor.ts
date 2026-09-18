@@ -1,7 +1,9 @@
 // Discovers open pull requests that should be mirrored for Bugbot.
-// A PR is eligible when it is open, not a draft, not authored by
-// SHADOW_AUTHOR_LOGIN, not a bot, and not already a pr-shadow mirror.
-// Limitations: Draft PRs are skipped until marked ready. Bot detection
+// A PR is eligible when it is open, created at or after the cutoff,
+// not a draft, not authored by SHADOW_AUTHOR_LOGIN, not a bot, and not
+// already a pr-shadow mirror.
+// Limitations: Draft PRs are skipped until marked ready. Historical
+//   PRs opened before the cutoff are never mirrored. Bot detection
 //   is login-based (`[bot]` suffix) and may miss unusual bot accounts.
 
 import {
@@ -12,7 +14,8 @@ import type { TrackedPullRequest } from "./types.js";
 
 export function shouldMirrorPullRequest(
   pr: TrackedPullRequest,
-  authorLogin: string
+  authorLogin: string,
+  minPrCreatedAt: string
 ): boolean {
   if (pr.state !== "open") {
     return false;
@@ -32,7 +35,22 @@ export function shouldMirrorPullRequest(
   if (pr.body.includes(ORIGINAL_MARKER_PREFIX) || pr.body.includes(MANAGED_MARKER)) {
     return false;
   }
+  if (isCreatedBeforeCutoff(pr, minPrCreatedAt)) {
+    return false;
+  }
   return true;
+}
+
+export function isCreatedBeforeCutoff(
+  pr: TrackedPullRequest,
+  minPrCreatedAt: string
+): boolean {
+  const createdMs = Date.parse(pr.createdAt);
+  const cutoffMs = Date.parse(minPrCreatedAt);
+  if (Number.isNaN(createdMs) || Number.isNaN(cutoffMs)) {
+    return true;
+  }
+  return createdMs < cutoffMs;
 }
 
 export function isBotLogin(login: string): boolean {

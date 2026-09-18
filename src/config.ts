@@ -56,6 +56,9 @@ export function loadConfig(): Config {
 
   const claudeModel = process.env.SHADOW_CLAUDE_MODEL?.trim() || null;
   const logLevel = parseLogLevel(process.env.SHADOW_LOG_LEVEL);
+  const minPrCreatedAt = parseOptionalIsoDate(
+    process.env.SHADOW_MIN_PR_CREATED_AT
+  );
 
   return {
     appId,
@@ -67,6 +70,7 @@ export function loadConfig(): Config {
     dbPath,
     claudeModel,
     logLevel,
+    minPrCreatedAt,
   };
 }
 
@@ -108,6 +112,20 @@ function parsePositiveInt(
     );
   }
   return parsed;
+}
+
+function parseOptionalIsoDate(value: string | undefined): string | null {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return null;
+  }
+  const parsed = Date.parse(trimmed);
+  if (Number.isNaN(parsed)) {
+    throw new Error(
+      `Configuration error: SHADOW_MIN_PR_CREATED_AT must be a valid ISO 8601 date, got "${value}".`
+    );
+  }
+  return new Date(parsed).toISOString();
 }
 
 function parseLogLevel(value: string | undefined): LogLevel {

@@ -46,6 +46,11 @@ export class StateStore {
 
       CREATE INDEX IF NOT EXISTS idx_shadow_prs_status
         ON shadow_prs (status);
+
+      CREATE TABLE IF NOT EXISTS meta (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      );
     `);
   }
 
@@ -111,6 +116,43 @@ export class StateStore {
       shadowPr: record.shadowPr,
       status: record.status,
     });
+  }
+
+  // Persist the cutoff used to ignore already-open historical PRs.
+  // If SHADOW_MIN_PR_CREATED_AT is unset, the first run stores the earliest
+  // shadow_prs.updated_at (when backfill began) or now.
+  ensureMinPrCreatedAt(envValue: string | null): string {
+    if (envValue) {
+      this.setMeta("min_pr_created_at", envValue);
+      return envValue;
+    }
+
+    const stored = this.getMeta("min_pr_created_at");
+    if (stored) {
+      return stored;
+    }
+
+    const earliest = this.db
+      .prepare("SELECT MIN(updated_at) AS value FROM shadow_prs")
+      .get() as { value: string | null } | undefined;
+    const resolved = earliest?.value ?? new Date().toISOString();
+    this.setMeta("min_pr_created_at", resolved);
+    return resolved;
+  }
+
+  private getMeta(key: string): string | null {
+    const row = this.db
+      .prepare("SELECT value FROM meta WHERE key = ?")
+      .get(key) as { value: string } | undefined;
+    return row?.value ?? null;
+  }
+
+  private setMeta(key: string, value: string): void {
+    this.db
+      .prepare(
+        "INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)"
+      )
+      .run(key, value);
   }
 
   close(): void {

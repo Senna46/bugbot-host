@@ -48,6 +48,14 @@ class PrShadowDaemon {
 
     await this.verifyPrerequisites();
 
+    const minPrCreatedAt = this.state.ensureMinPrCreatedAt(
+      this.config.minPrCreatedAt
+    );
+    this.config.minPrCreatedAt = minPrCreatedAt;
+    logger.info("Only mirroring PRs created at or after cutoff.", {
+      minPrCreatedAt,
+    });
+
     this.github = await GitHubClient.create(
       this.config.appId,
       this.config.privateKey,
@@ -162,9 +170,20 @@ class PrShadowDaemon {
 
   private async processRepository(owner: string, repo: string): Promise<void> {
     const repoName = `${owner}/${repo}`;
-    const openPrs = await this.github.listOpenPullRequests(owner, repo);
+    const minPrCreatedAt = this.config.minPrCreatedAt;
+    if (!minPrCreatedAt) {
+      throw new Error(
+        `processRepository failed: minPrCreatedAt is not set (owner=${owner}, repo=${repo}).`
+      );
+    }
+
+    const openPrs = await this.github.listOpenPullRequests(
+      owner,
+      repo,
+      minPrCreatedAt
+    );
     const originals = openPrs.filter((pr) =>
-      shouldMirrorPullRequest(pr, this.config.authorLogin)
+      shouldMirrorPullRequest(pr, this.config.authorLogin, minPrCreatedAt)
     );
     const tracked = this.state.listForRepo(repoName);
     const originalNumbers = new Set(originals.map((pr) => pr.number));

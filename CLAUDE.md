@@ -65,3 +65,5 @@ the Senna46-authored mirror PR.
   GitHub Actions.
 - Never merge a mirror PR into a repository default branch.
 - Fork PRs are not retargeted; extras are delivered as a comment + leftover branch.
+- Only **open** PRs created at or after `minPrCreatedAt` are mirrored.
+  Closed PRs and already-open historical PRs are out of scope.

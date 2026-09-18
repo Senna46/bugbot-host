@@ -1,0 +1,24 @@
+# Docker Compose for pr-shadow
+# Persists state DB and cloned repos in a named volume.
+#
+# Authentication:
+#   GitHub App: SHADOW_APP_ID and SHADOW_PRIVATE_KEY_PATH (or SHADOW_PRIVATE_KEY)
+#   GitHub user PAT: SHADOW_GITHUB_TOKEN (Senna46, required for Bugbot)
+#   Claude: CLAUDE_CODE_OAUTH_TOKEN (required on macOS)
+
+services:
+  pr-shadow:
+    build: .
+    container_name: pr-shadow
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - SHADOW_WORK_DIR=/data/repos
+      - SHADOW_DB_PATH=/data/db/state.db
+    volumes:
+      - pr-shadow-data:/data
+      - ${HOME}/.claude:/root/.claude
+      - ${HOME}/.claude.json:/root/.claude.json
+
+volumes:
+  pr-shadow-data:

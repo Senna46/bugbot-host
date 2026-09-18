@@ -119,8 +119,8 @@ export class StateStore {
   }
 
   // Persist the cutoff used to ignore already-open historical PRs.
-  // If SHADOW_MIN_PR_CREATED_AT is unset, the first run stores the earliest
-  // shadow_prs.updated_at (when backfill began) or now.
+  // If SHADOW_MIN_PR_CREATED_AT is unset, the first run of this code stores
+  // "now". shadow_prs.updated_at cannot be used: it is rewritten every poll.
   ensureMinPrCreatedAt(envValue: string | null): string {
     if (envValue) {
       this.setMeta("min_pr_created_at", envValue);
@@ -132,10 +132,7 @@ export class StateStore {
       return stored;
     }
 
-    const earliest = this.db
-      .prepare("SELECT MIN(updated_at) AS value FROM shadow_prs")
-      .get() as { value: string | null } | undefined;
-    const resolved = earliest?.value ?? new Date().toISOString();
+    const resolved = new Date().toISOString();
     this.setMeta("min_pr_created_at", resolved);
     return resolved;
   }

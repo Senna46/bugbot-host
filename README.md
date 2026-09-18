@@ -103,7 +103,7 @@ Optional:
 
 - `SHADOW_AUTHOR_LOGIN` (default `Senna46`)
 - `SHADOW_POLL_INTERVAL` (default `120`)
-- `SHADOW_MIN_PR_CREATED_AT` (ISO 8601; default: time of the first shadow write, so already-open historical PRs are ignored)
+- `SHADOW_MIN_PR_CREATED_AT` (ISO 8601; default: the first time this cutoff code runs, so already-open historical PRs are ignored)
 - `SHADOW_WORK_DIR` (default `~/.pr-shadow/repos`)
 - `SHADOW_DB_PATH` (default `~/.pr-shadow/state.db`)
 - `SHADOW_CLAUDE_MODEL`

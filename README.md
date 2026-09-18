@@ -88,8 +88,10 @@ Logs: `~/.bugbot-host/logs/stdout.log` and `stderr.log`.
 ### Docker
 
 ```bash
-docker compose up -d --build
+docker compose up -d --build --remove-orphans
 ```
+
+`--remove-orphans` is required after the pr-shadow -> bugbot-host rename so an existing `pr-shadow` container (renamed service/volume) is stopped instead of continuing to run alongside the new one and double-hosting PRs.
 
 ## Configuration
 

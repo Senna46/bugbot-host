@@ -23,6 +23,7 @@ import type { StateStore } from "./state.js";
 import type {
   Config,
   ShadowRecord,
+  ShadowStatus,
   TrackedPullRequest,
 } from "./types.js";
 
@@ -184,7 +185,7 @@ export class ShadowManager {
         shadowBranch: branchName,
         originalHeadSha: original.headSha,
         shadowHeadSha: existing.headSha,
-        status: existing.state === "closed" ? "closed" : "mirroring",
+        status: inferAdoptedShadowStatus(existing, original),
         lastError: null,
       });
       this.state.upsert(record);
@@ -923,6 +924,25 @@ function splitRepo(repo: string): [string, string] {
     throw new Error(`splitRepo failed: expected owner/name, got "${repo}"`);
   }
   return [parts[0], parts[1]];
+}
+
+function inferAdoptedShadowStatus(
+  existing: TrackedPullRequest,
+  original: TrackedPullRequest
+): ShadowStatus {
+  // Adopting an existing hosted PR after the DB record was lost. GitHub only
+  // exposes open/closed, so a closed hosted PR is mapped to a resumable pause
+  // state (not terminal "closed") so new original commits restart hosting.
+  // An open hosted PR already retargeted onto the original head branch is
+  // "delivering", not "mirroring" - otherwise its base would be forced back
+  // onto the repository default branch.
+  if (existing.state === "closed") {
+    return "closed_no_changes";
+  }
+  if (existing.baseRef === original.headRef) {
+    return "delivering";
+  }
+  return "mirroring";
 }
 
 function buildShadowTitle(original: TrackedPullRequest): string {

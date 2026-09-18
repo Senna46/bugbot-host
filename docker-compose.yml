@@ -5,6 +5,11 @@
 #   GitHub App: BUGBOT_HOST_APP_ID and BUGBOT_HOST_PRIVATE_KEY_PATH (or BUGBOT_HOST_PRIVATE_KEY)
 #   GitHub user PAT: BUGBOT_HOST_GITHUB_TOKEN (Senna46, required for Bugbot)
 #   Claude: CLAUDE_CODE_OAUTH_TOKEN (required on macOS)
+#
+# The service/container/volume were renamed from pr-shadow to bugbot-host.
+# Always bring this stack up with --remove-orphans (see README) so a
+# leftover pr-shadow container from before the rename is stopped instead
+# of continuing to run alongside this one on its own volume and lock file.
 
 services:
   bugbot-host:

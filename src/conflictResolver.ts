@@ -1,4 +1,4 @@
-// Merge-conflict resolution for pr-shadow using claude -p.
+// Merge-conflict resolution for bugbot-host using claude -p.
 // After a git merge or cherry-pick stops with unmerged files, Claude
 // edits the working tree to remove conflict markers. This module does
 // not run git add/commit; GitOps finishes the git operation.
@@ -103,7 +103,7 @@ export class ConflictResolver {
       `Original pull request: #${context.originalPr}`,
       `Git operation: ${context.mode}`,
       "",
-      "A pr-shadow branch already contains extra commits (usually Fixooly bug fixes).",
+      "A bugbot-host branch already contains extra commits (usually Fixooly bug fixes).",
       "New commits from the original pull request are being applied onto that branch.",
       "",
       "Unmerged files:",

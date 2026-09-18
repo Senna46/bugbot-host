@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>Label</key>
-	<string>com.senna.pr-shadow</string>
+	<string>com.senna.bugbot-host</string>
 
 	<key>ProgramArguments</key>
 	<array>
@@ -32,10 +32,10 @@
 	</dict>
 
 	<key>StandardOutPath</key>
-	<string>__HOME__/.pr-shadow/logs/stdout.log</string>
+	<string>__HOME__/.bugbot-host/logs/stdout.log</string>
 
 	<key>StandardErrorPath</key>
-	<string>__HOME__/.pr-shadow/logs/stderr.log</string>
+	<string>__HOME__/.bugbot-host/logs/stderr.log</string>
 
 	<key>ThrottleInterval</key>
 	<integer>30</integer>

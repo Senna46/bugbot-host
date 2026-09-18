@@ -4,14 +4,14 @@ Instructions for Claude Code when working on this codebase.
 
 ## Project Overview
 
-pr-shadow is a TypeScript daemon that mirrors other people's GitHub PRs as
+bugbot-host is a TypeScript daemon that hosts other people's GitHub PRs as
 Senna46-authored PRs so Cursor Bugbot can review them. After Bugbot and
 Fixooly finish with a successful Cursor Bugbot check, extra commits are
 delivered back to the original PR (retarget + review request) or the
-mirror is closed if there is no extra diff.
+hosted PR is closed if there is no extra diff.
 
 This project does NOT fix bugs itself. Fixooly still performs autofix on
-the Senna46-authored mirror PR.
+the Senna46-authored hosted PR.
 
 ## Tech Stack
 
@@ -26,8 +26,8 @@ the Senna46-authored mirror PR.
 ## Project Structure
 
  src/
- main.ts           PrShadowDaemon entry point, polling loop
- config.ts         SHADOW_* environment variable loader
+ main.ts           BugbotHostDaemon entry point, polling loop
+ config.ts         BUGBOT_HOST_* environment variable loader
  types.ts          Shared interfaces
  logger.ts         Structured logger with level support
  githubClient.ts   App + PAT Octokit wrapper
@@ -52,18 +52,19 @@ the Senna46-authored mirror PR.
 - Structured logging: logger.info("message", { key: value })
 - Error messages include function context and relevant parameters
 - Comments at file top describe purpose and limitations (in English)
-- User-facing text (logs, PR comments) in English
+- User-facing text (logs, GitHub comments) in English
 - Git commit messages in English only
 
 ## Important Notes
 
-- Mirror PRs MUST be created with SHADOW_GITHUB_TOKEN (Senna46 PAT).
+- Hosted PRs MUST be created with BUGBOT_HOST_GITHUB_TOKEN (Senna46 PAT).
   GitHub App installation tokens would author the PR as a bot and Bugbot
   would skip them.
 - Push also uses the PAT so GitHub webhooks fire for Bugbot.
 - Completion is Cursor Bugbot check conclusion=success. Do not wait for
   GitHub Actions.
-- Never merge a mirror PR into a repository default branch.
+- Never merge a hosted PR into a repository default branch.
 - Fork PRs are not retargeted; extras are delivered as a comment + leftover branch.
-- Only **open** PRs created at or after `minPrCreatedAt` are mirrored.
+- Only **open** PRs created at or after `minPrCreatedAt` are hosted.
   Closed PRs and already-open historical PRs are out of scope.
+- Legacy pr-shadow branch names and HTML markers must keep being recognized.

@@ -1,8 +1,8 @@
-// Local git operations for pr-shadow.
+// Local git operations for bugbot-host.
 // Clones monitored repositories, fetches original PR heads via
-// pull/{n}/head, maintains pr-shadow/{n} branches, and merges or
+// pull/{n}/head, maintains bugbot-host/{n} branches, and merges or
 // cherry-picks original updates onto those branches.
-// Uses SHADOW_GITHUB_TOKEN via http.extraheader so pushes trigger
+// Uses BUGBOT_HOST_GITHUB_TOKEN via http.extraheader so pushes trigger
 // GitHub webhooks (needed for Cursor Bugbot).
 // Limitations: Requires git CLI. Conflict resolution is delegated
 //   to ConflictResolver. Single-threaded use per repo directory.
@@ -17,8 +17,8 @@ import { logger } from "./logger.js";
 
 const execFileAsync = promisify(execFile);
 const GIT_TIMEOUT_MS = 2 * 60 * 1000;
-const GIT_USER_NAME = "pr-shadow";
-const GIT_USER_EMAIL = "pr-shadow@users.noreply.github.com";
+const GIT_USER_NAME = "bugbot-host";
+const GIT_USER_EMAIL = "bugbot-host@users.noreply.github.com";
 
 export class GitOps {
   private workDir: string;
@@ -34,11 +34,11 @@ export class GitOps {
   }
 
   originalRefName(originalPr: number): string {
-    return `refs/pr-shadow-original/${originalPr}`;
+    return `refs/bugbot-host-original/${originalPr}`;
   }
 
   shadowBranchName(originalPr: number): string {
-    return `pr-shadow/${originalPr}`;
+    return `bugbot-host/${originalPr}`;
   }
 
   async ensureRepoClone(owner: string, repo: string): Promise<string> {

@@ -1,6 +1,6 @@
-// Main entry point for the pr-shadow daemon.
+// Main entry point for the bugbot-host daemon.
 // Polls GitHub App installations for open PRs authored by other people,
-// creates Senna46-authored mirror PRs for Cursor Bugbot, syncs later
+// creates Senna46-authored hosted PRs for Cursor Bugbot, syncs later
 // original commits, and delivers Fixooly results back to the original PR.
 // Limitations: Single-threaded; processes repositories sequentially
 //   within each polling cycle. Graceful shutdown on SIGINT/SIGTERM.
@@ -25,7 +25,7 @@ import { ShadowManager } from "./shadowManager.js";
 import { StateStore } from "./state.js";
 import type { Config } from "./types.js";
 
-class PrShadowDaemon {
+class BugbotHostDaemon {
   private config: Config;
   private state: StateStore;
   private github!: GitHubClient;
@@ -38,7 +38,7 @@ class PrShadowDaemon {
   }
 
   async initialize(): Promise<void> {
-    logger.info("Initializing pr-shadow...");
+    logger.info("Initializing bugbot-host...");
     logger.info("Configuration loaded.", {
       appId: this.config.appId,
       authorLogin: this.config.authorLogin,
@@ -81,13 +81,13 @@ class PrShadowDaemon {
 
     if (!this.config.appId || !this.config.privateKey) {
       throw new Error(
-        "GitHub App credentials are missing. Set SHADOW_APP_ID and " +
-          "SHADOW_PRIVATE_KEY_PATH (or SHADOW_PRIVATE_KEY)."
+        "GitHub App credentials are missing. Set BUGBOT_HOST_APP_ID and " +
+          "BUGBOT_HOST_PRIVATE_KEY_PATH (or BUGBOT_HOST_PRIVATE_KEY)."
       );
     }
     if (!this.config.githubToken) {
       throw new Error(
-        "SHADOW_GITHUB_TOKEN is missing. A Senna46 classic PAT is required so mirror PRs are user-authored."
+        "BUGBOT_HOST_GITHUB_TOKEN is missing. A Senna46 classic PAT is required so hosted PRs are user-authored."
       );
     }
 
@@ -247,7 +247,7 @@ class PrShadowDaemon {
 
   private shutdown(): void {
     this.state.close();
-    logger.info("pr-shadow stopped.");
+    logger.info("bugbot-host stopped.");
   }
 
   private sleep(ms: number): Promise<void> {
@@ -329,7 +329,7 @@ async function main(): Promise<void> {
     mkdirSync(dirname(config.dbPath), { recursive: true });
     lockPath = acquireLock(config.dbPath);
 
-    const daemon = new PrShadowDaemon(config);
+    const daemon = new BugbotHostDaemon(config);
     await daemon.initialize();
     await daemon.run();
   } catch (error) {

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Entrypoint for the pr-shadow Docker container.
+# Entrypoint for the bugbot-host Docker container.
 # Verifies Claude CLI authentication and GitHub credentials
 # before starting the daemon.
 
@@ -24,18 +24,18 @@ else
   echo "Set CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY, or mount ~/.claude with credentials."
 fi
 
-if [ -n "$SHADOW_APP_ID" ] && { [ -n "$SHADOW_PRIVATE_KEY_PATH" ] || [ -n "$SHADOW_PRIVATE_KEY" ]; }; then
+if { [ -n "$BUGBOT_HOST_APP_ID" ] || [ -n "$SHADOW_APP_ID" ]; } && { [ -n "$BUGBOT_HOST_PRIVATE_KEY_PATH" ] || [ -n "$BUGBOT_HOST_PRIVATE_KEY" ] || [ -n "$SHADOW_PRIVATE_KEY_PATH" ] || [ -n "$SHADOW_PRIVATE_KEY" ]; }; then
   echo "GitHub App credentials configured."
 else
   echo "WARNING: GitHub App credentials incomplete."
-  echo "Set SHADOW_APP_ID and SHADOW_PRIVATE_KEY_PATH (or SHADOW_PRIVATE_KEY)."
+  echo "Set BUGBOT_HOST_APP_ID and BUGBOT_HOST_PRIVATE_KEY_PATH (or BUGBOT_HOST_PRIVATE_KEY)."
 fi
 
-if [ -n "$SHADOW_GITHUB_TOKEN" ]; then
+if [ -n "$BUGBOT_HOST_GITHUB_TOKEN" ] || [ -n "$SHADOW_GITHUB_TOKEN" ]; then
   echo "GitHub user PAT configured."
 else
-  echo "WARNING: SHADOW_GITHUB_TOKEN is missing. Mirror PRs will not be authored by Senna46."
+  echo "WARNING: BUGBOT_HOST_GITHUB_TOKEN is missing. Hosted PRs will not be authored by Senna46."
 fi
 
-echo "Starting pr-shadow daemon..."
+echo "Starting bugbot-host daemon..."
 exec node dist/main.js

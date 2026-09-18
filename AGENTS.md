@@ -4,9 +4,9 @@ Guidelines for AI agents working on this codebase.
 
 ## Repository Purpose
 
-This is **pr-shadow**, a daemon that mirrors other people's GitHub pull
+This is **bugbot-host**, a daemon that hosts other people's GitHub pull
 requests as Senna46-authored PRs so Cursor Bugbot can review them. It does
-NOT detect or fix bugs. Fixooly still commits fixes onto the mirror PR.
+NOT detect or fix bugs. Fixooly still commits fixes onto the hosted PR.
 
 ## Before Making Changes
 
@@ -49,11 +49,12 @@ After any code change:
 
 ## Environment Variables
 
-All config uses the `SHADOW_` prefix. Required:
+All config uses the `BUGBOT_HOST_` prefix. Former `SHADOW_*` names are still
+accepted. Required:
 
-- SHADOW_APP_ID
-- SHADOW_PRIVATE_KEY_PATH or SHADOW_PRIVATE_KEY
-- SHADOW_GITHUB_TOKEN (classic PAT as Senna46)
+- BUGBOT_HOST_APP_ID
+- BUGBOT_HOST_PRIVATE_KEY_PATH or BUGBOT_HOST_PRIVATE_KEY
+- BUGBOT_HOST_GITHUB_TOKEN (classic PAT as Senna46)
 
 Monitored repositories are auto-discovered from the App installations.
 

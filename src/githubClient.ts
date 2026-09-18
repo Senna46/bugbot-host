@@ -1,7 +1,7 @@
-// GitHub API client for pr-shadow.
+// GitHub API client for bugbot-host.
 // Uses a GitHub App to discover repositories from installations (same
 // set as Fixooly) and a user PAT for PR create/update/comment/check
-// reads so mirror PRs are authored by Senna46.
+// reads so hosted PRs are authored by Senna46.
 // Limitations: Rate limiting is handled by Octokit built-in throttling.
 //   Check name matching is tied to Cursor's "Cursor Bugbot" check.
 
@@ -16,8 +16,25 @@ import type {
 
 const BUGBOT_CHECK_NAME = "Cursor Bugbot";
 
-export const ORIGINAL_MARKER_PREFIX = "<!-- PR_SHADOW_ORIGINAL:";
-export const MANAGED_MARKER = "<!-- PR_SHADOW_MANAGED -->";
+export const ORIGINAL_MARKER_PREFIX = "<!-- BUGBOT_HOST_ORIGINAL:";
+export const MANAGED_MARKER = "<!-- BUGBOT_HOST_MANAGED -->";
+export const LEGACY_ORIGINAL_MARKER_PREFIX = "<!-- PR_SHADOW_ORIGINAL:";
+export const LEGACY_MANAGED_MARKER = "<!-- PR_SHADOW_MANAGED -->";
+
+export function isManagedMirrorBody(body: string): boolean {
+  return (
+    body.includes(ORIGINAL_MARKER_PREFIX) ||
+    body.includes(MANAGED_MARKER) ||
+    body.includes(LEGACY_ORIGINAL_MARKER_PREFIX) ||
+    body.includes(LEGACY_MANAGED_MARKER)
+  );
+}
+
+export function isManagedMirrorBranch(headRef: string): boolean {
+  return (
+    headRef.startsWith("bugbot-host/") || headRef.startsWith("pr-shadow/")
+  );
+}
 
 export class GitHubClient {
   private app: App;

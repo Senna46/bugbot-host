@@ -1,4 +1,4 @@
-// Orchestrates mirror PR lifecycle for pr-shadow.
+// Orchestrates hosted PR lifecycle for bugbot-host.
 // Creates Senna46-authored shadow PRs, keeps them in sync with original
 // PR heads, waits for the Cursor Bugbot check to succeed, then retargets,
 // notifies, or closes according to same-repo vs fork and whether extra
@@ -14,6 +14,7 @@ import {
 import { GitOps } from "./gitOps.js";
 import { logger } from "./logger.js";
 import {
+  buildLegacyShadowBranchName,
   buildOriginalMarker,
   buildShadowBranchName,
   isCreatedBeforeCutoff,
@@ -22,14 +23,15 @@ import type { StateStore } from "./state.js";
 import type {
   Config,
   ShadowRecord,
+  ShadowStatus,
   TrackedPullRequest,
 } from "./types.js";
 
-const COMMENT_NO_CHANGES = "<!-- PR_SHADOW_COMMENT: no_changes -->";
-const COMMENT_FORK_FIXES = "<!-- PR_SHADOW_COMMENT: fork_fixes -->";
-const COMMENT_DELIVERING = "<!-- PR_SHADOW_COMMENT: delivering -->";
-const COMMENT_ORIGINAL_CLOSED = "<!-- PR_SHADOW_COMMENT: original_closed -->";
-const COMMENT_TOO_OLD = "<!-- PR_SHADOW_COMMENT: too_old -->";
+const COMMENT_NO_CHANGES = "<!-- BUGBOT_HOST_COMMENT: no_changes -->";
+const COMMENT_FORK_FIXES = "<!-- BUGBOT_HOST_COMMENT: fork_fixes -->";
+const COMMENT_DELIVERING = "<!-- BUGBOT_HOST_COMMENT: delivering -->";
+const COMMENT_ORIGINAL_CLOSED = "<!-- BUGBOT_HOST_COMMENT: original_closed -->";
+const COMMENT_TOO_OLD = "<!-- BUGBOT_HOST_COMMENT: too_old -->";
 
 export class ShadowManager {
   private config: Config;
@@ -74,6 +76,11 @@ export class ShadowManager {
     }
 
     if (!record) {
+      const reused = await this.adoptExistingShadow(original);
+      if (reused) {
+        await this.processOriginal(original, reused);
+        return;
+      }
       await this.createShadow(original);
       return;
     }
@@ -148,6 +155,45 @@ export class ShadowManager {
   // ============================================================
   // Create a new shadow branch and PR
   // ============================================================
+
+  private async adoptExistingShadow(
+    original: TrackedPullRequest
+  ): Promise<ShadowRecord | null> {
+    const preferredBranch = buildShadowBranchName(original.number);
+    const legacyBranch = buildLegacyShadowBranchName(original.number);
+
+    for (const branchName of [preferredBranch, legacyBranch]) {
+      const existing = await this.github.findPullRequestByHead(
+        original.owner,
+        original.repo,
+        branchName,
+        "all"
+      );
+      if (!existing) {
+        continue;
+      }
+
+      logger.info("Adopting existing hosted PR instead of creating a new one.", {
+        repo: repoFullName(original),
+        originalPr: original.number,
+        shadowPr: existing.number,
+        shadowBranch: branchName,
+      });
+
+      const record = buildRecord(original, {
+        shadowPr: existing.number,
+        shadowBranch: branchName,
+        originalHeadSha: original.headSha,
+        shadowHeadSha: existing.headSha,
+        status: inferAdoptedShadowStatus(existing, original),
+        lastError: null,
+      });
+      this.state.upsert(record);
+      return record;
+    }
+
+    return null;
+  }
 
   private async createShadow(original: TrackedPullRequest): Promise<void> {
     const repo = repoFullName(original);
@@ -431,7 +477,7 @@ export class ShadowManager {
       original,
       result.unmergedFiles,
       "cherry-pick",
-      `Cherry-pick ${commitSha.substring(0, 10)} onto pr-shadow/${original.number}`
+      `Cherry-pick ${commitSha.substring(0, 10)} onto bugbot-host/${original.number}`
     );
   }
 
@@ -578,7 +624,7 @@ export class ShadowManager {
       `${COMMENT_NO_CHANGES}:${original.headSha}`,
       [
         `${COMMENT_NO_CHANGES}:${original.headSha}`,
-        `[pr-shadow](https://github.com/Senna46/pr-shadow) mirrored this PR as #${shadowPr.number} so Cursor Bugbot could review it.`,
+        `[bugbot-host](https://github.com/Senna46/bugbot-host) mirrored this PR as #${shadowPr.number} so Cursor Bugbot could review it.`,
         "Bugbot reported no issues and the extra mirror had no additional commits, so the mirror was closed without merging.",
       ].join("\n\n")
     );
@@ -643,7 +689,7 @@ export class ShadowManager {
       `${COMMENT_DELIVERING}:${original.headSha}`,
       [
         `${COMMENT_DELIVERING}:${original.headSha}`,
-        `[pr-shadow](https://github.com/Senna46/pr-shadow) finished Cursor Bugbot / Fixooly on a mirror of this PR.`,
+        `[bugbot-host](https://github.com/Senna46/bugbot-host) finished Cursor Bugbot / Fixooly on a mirror of this PR.`,
         `Please review #${shadowPr.number}. Its base was changed to \`${original.headRef}\` so the extra commits (Bugbot fixes) can be merged into this branch.`,
         "**Do not merge the mirror into the repository default branch.**",
       ].join("\n\n")
@@ -679,7 +725,7 @@ export class ShadowManager {
       `${COMMENT_FORK_FIXES}:${original.headSha}`,
       [
         `${COMMENT_FORK_FIXES}:${original.headSha}`,
-        `[pr-shadow](https://github.com/Senna46/pr-shadow) ran Cursor Bugbot / Fixooly on a mirror of this fork PR.`,
+        `[bugbot-host](https://github.com/Senna46/bugbot-host) ran Cursor Bugbot / Fixooly on a mirror of this fork PR.`,
         `The mirror was closed so it cannot be merged into the default branch. Extra commits are on \`${record.shadowBranch}\` (see #${shadowPr.number}).`,
         "To apply those commits onto this PR branch:",
         "```bash",
@@ -741,7 +787,7 @@ export class ShadowManager {
           COMMENT_TOO_OLD,
           [
             COMMENT_TOO_OLD,
-            "[pr-shadow](https://github.com/Senna46/pr-shadow) only mirrors **newly opened** pull requests.",
+            "[bugbot-host](https://github.com/Senna46/bugbot-host) only hosts **newly opened** pull requests.",
             `This original (#${original.number}) was created at ${original.createdAt}, which is before the cutoff ${minPrCreatedAt}. Closing this mirror without merging.`,
           ].join("\n\n")
         );
@@ -810,7 +856,7 @@ export class ShadowManager {
         COMMENT_ORIGINAL_CLOSED,
         [
           COMMENT_ORIGINAL_CLOSED,
-          `[pr-shadow](https://github.com/Senna46/pr-shadow) closed the Bugbot mirror because this PR was merged or closed.`,
+          `[bugbot-host](https://github.com/Senna46/bugbot-host) closed the Bugbot mirror because this PR was merged or closed.`,
         ].join("\n\n")
       );
     }
@@ -830,14 +876,16 @@ export class ShadowManager {
     marker: string,
     body: string
   ): Promise<void> {
-    const already = await this.github.hasIssueCommentContaining(
-      owner,
-      repo,
-      prNumber,
-      marker
-    );
-    if (already) {
-      return;
+    for (const candidate of commentMarkersToMatch(marker)) {
+      const already = await this.github.hasIssueCommentContaining(
+        owner,
+        repo,
+        prNumber,
+        candidate
+      );
+      if (already) {
+        return;
+      }
     }
     await this.github.createIssueComment(owner, repo, prNumber, body);
   }
@@ -847,10 +895,10 @@ export class ShadowManager {
     unmergedFiles: string[],
     mode: "merge" | "cherry-pick"
   ): Promise<void> {
-    const marker = `<!-- PR_SHADOW_COMMENT: conflict_failed:${original.headSha} -->`;
+    const marker = `<!-- BUGBOT_HOST_COMMENT: conflict_failed:${original.headSha} -->`;
     const body = [
       marker,
-      `[pr-shadow](https://github.com/Senna46/pr-shadow) failed to resolve a ${mode} conflict while syncing original PR #${original.number} (\`${original.headSha.substring(0, 10)}\`).`,
+      `[bugbot-host](https://github.com/Senna46/bugbot-host) failed to resolve a ${mode} conflict while syncing original PR #${original.number} (\`${original.headSha.substring(0, 10)}\`).`,
       "Unmerged files:",
       unmergedFiles.map((path) => `- \`${path}\``).join("\n"),
       "The sync was aborted and will be retried on the next polling cycle.",
@@ -878,8 +926,30 @@ function splitRepo(repo: string): [string, string] {
   return [parts[0], parts[1]];
 }
 
+function inferAdoptedShadowStatus(
+  existing: TrackedPullRequest,
+  original: TrackedPullRequest
+): ShadowStatus {
+  // Adopting an existing hosted PR after the DB record was lost. GitHub only
+  // exposes open/closed, so a closed hosted PR is mapped to a resumable pause
+  // state (not terminal "closed") so new original commits restart hosting.
+  // An open, same-repo hosted PR already retargeted onto the original head
+  // branch is "delivering", not "mirroring" - otherwise its base would be
+  // forced back onto the repository default branch. Fork PRs are never
+  // retargeted (they are closed instead), so this check must not apply to
+  // them: forks commonly reuse the default branch name as their head branch,
+  // which would otherwise make a still-mirroring hosted PR look delivered.
+  if (existing.state === "closed") {
+    return "closed_no_changes";
+  }
+  if (!original.isCrossRepo && existing.baseRef === original.headRef) {
+    return "delivering";
+  }
+  return "mirroring";
+}
+
 function buildShadowTitle(original: TrackedPullRequest): string {
-  return `[pr-shadow] #${original.number}: ${original.title}`;
+  return `[bugbot-host] #${original.number}: ${original.title}`;
 }
 
 function buildShadowBody(
@@ -890,11 +960,11 @@ function buildShadowBody(
     buildOriginalMarker(original.owner, original.repo, original.number),
     MANAGED_MARKER,
     "",
-    `This pull request is an automated [pr-shadow](https://github.com/Senna46/pr-shadow) mirror of #${original.number}.`,
+    `This pull request is an automated [bugbot-host](https://github.com/Senna46/bugbot-host) mirror of #${original.number}.`,
     "",
     `Cursor Bugbot (Individual) only reviews PRs authored by @${authorLogin}. This mirror exists so Bugbot and Fixooly can run.`,
     "",
-    "**Do not merge this PR into the default branch.** pr-shadow will retarget it or close it automatically.",
+    "**Do not merge this PR into the default branch.** bugbot-host will retarget it or close it automatically.",
     "",
     `Original author: @${original.authorLogin}`,
     `Original: ${original.htmlUrl}`,
@@ -928,4 +998,12 @@ function buildRecord(
 
 function nowIso(): string {
   return new Date().toISOString();
+}
+
+function commentMarkersToMatch(marker: string): string[] {
+  const markers = [marker];
+  if (marker.includes("BUGBOT_HOST_COMMENT")) {
+    markers.push(marker.replaceAll("BUGBOT_HOST_COMMENT", "PR_SHADOW_COMMENT"));
+  }
+  return markers;
 }

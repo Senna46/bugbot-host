@@ -1,4 +1,4 @@
-// Data models and type definitions for pr-shadow.
+// Data models and type definitions for bugbot-host.
 // Defines configuration, GitHub PR metadata, shadow tracking records,
 // and Bugbot check results.
 // Limitations: ShadowStatus values are stored in SQLite as strings

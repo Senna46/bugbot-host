@@ -1,4 +1,4 @@
-// Structured logger for pr-shadow.
+// Structured logger for bugbot-host.
 // Supports log levels (debug, info, warn, error) with timestamped
 // messages to stdout/stderr.
 // Limitations: No file-based logging or log rotation.

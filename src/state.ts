@@ -1,4 +1,4 @@
-// SQLite-based state management for pr-shadow.
+// SQLite-based state management for bugbot-host.
 // Tracks one shadow PR mapping per original PR so the daemon can
 // resume mirroring, retargeting, and close/reopen decisions across
 // polling cycles.
@@ -119,7 +119,7 @@ export class StateStore {
   }
 
   // Persist the cutoff used to ignore already-open historical PRs.
-  // If SHADOW_MIN_PR_CREATED_AT is unset, the first run of this code stores
+  // If BUGBOT_HOST_MIN_PR_CREATED_AT is unset, the first run of this code stores
   // "now". shadow_prs.updated_at cannot be used: it is rewritten every poll.
   ensureMinPrCreatedAt(envValue: string | null): string {
     if (envValue) {

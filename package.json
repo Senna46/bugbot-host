@@ -1,7 +1,7 @@
 {
-  "name": "pr-shadow",
+  "name": "bugbot-host",
   "version": "0.1.0",
-  "description": "Mirror other people's GitHub PRs as Senna46-authored PRs so Cursor Bugbot can review them",
+  "description": "Host other people's GitHub PRs as Senna46-authored PRs so Cursor Bugbot can review them",
   "type": "module",
   "main": "dist/main.js",
   "scripts": {
@@ -14,7 +14,7 @@
     "github",
     "bugbot",
     "cursor",
-    "pr-shadow"
+    "bugbot-host"
   ],
   "author": "Senna46",
   "license": "MIT",

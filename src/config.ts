@@ -1,7 +1,9 @@
-// Configuration loader for pr-shadow.
-// Reads SHADOW_* environment variables (with dotenv support) and validates
-// required settings. Uses a GitHub App for repository discovery and a
-// user PAT so mirror PRs are authored by SHADOW_AUTHOR_LOGIN.
+// Configuration loader for bugbot-host.
+// Reads BUGBOT_HOST_* environment variables (with dotenv support) and
+// validates required settings. SHADOW_* names are still accepted as a
+// temporary fallback from the former pr-shadow project.
+// Uses a GitHub App for repository discovery and a user PAT so hosted
+// PRs are authored by BUGBOT_HOST_AUTHOR_LOGIN.
 // Limitations: Only supports environment variable configuration,
 //   no config file support.
 
@@ -18,46 +20,51 @@ const VALID_LOG_LEVELS: LogLevel[] = ["debug", "info", "warn", "error"];
 export function loadConfig(): Config {
   dotenvConfig();
 
-  const appIdStr = process.env.SHADOW_APP_ID?.trim();
+  const appIdStr = readEnv("BUGBOT_HOST_APP_ID", "SHADOW_APP_ID");
   if (!appIdStr) {
-    throw new Error("Configuration error: SHADOW_APP_ID is required.");
+    throw new Error("Configuration error: BUGBOT_HOST_APP_ID is required.");
   }
   const appId = parseInt(appIdStr, 10);
   if (isNaN(appId) || appId <= 0) {
     throw new Error(
-      `Configuration error: SHADOW_APP_ID must be a positive integer, got "${appIdStr}".`
+      `Configuration error: BUGBOT_HOST_APP_ID must be a positive integer, got "${appIdStr}".`
     );
   }
 
   const privateKey = loadPrivateKey();
 
-  const githubToken = process.env.SHADOW_GITHUB_TOKEN?.trim();
+  const githubToken = readEnv("BUGBOT_HOST_GITHUB_TOKEN", "SHADOW_GITHUB_TOKEN");
   if (!githubToken) {
     throw new Error(
-      "Configuration error: SHADOW_GITHUB_TOKEN is required. " +
-        "Use a classic PAT for Senna46 so mirror PRs are authored by that user " +
+      "Configuration error: BUGBOT_HOST_GITHUB_TOKEN is required. " +
+        "Use a classic PAT for Senna46 so hosted PRs are authored by that user " +
         "and git push triggers Bugbot webhooks."
     );
   }
 
   const authorLogin =
-    process.env.SHADOW_AUTHOR_LOGIN?.trim() || "Senna46";
+    readEnv("BUGBOT_HOST_AUTHOR_LOGIN", "SHADOW_AUTHOR_LOGIN") || "Senna46";
 
   const pollInterval = parsePositiveInt(
-    process.env.SHADOW_POLL_INTERVAL,
+    readEnv("BUGBOT_HOST_POLL_INTERVAL", "SHADOW_POLL_INTERVAL"),
     120
   );
 
-  const defaultWorkDir = join(homedir(), ".pr-shadow", "repos");
-  const workDir = process.env.SHADOW_WORK_DIR?.trim() || defaultWorkDir;
+  const defaultWorkDir = join(homedir(), ".bugbot-host", "repos");
+  const workDir =
+    readEnv("BUGBOT_HOST_WORK_DIR", "SHADOW_WORK_DIR") || defaultWorkDir;
 
-  const defaultDbPath = join(homedir(), ".pr-shadow", "state.db");
-  const dbPath = process.env.SHADOW_DB_PATH?.trim() || defaultDbPath;
+  const defaultDbPath = join(homedir(), ".bugbot-host", "state.db");
+  const dbPath =
+    readEnv("BUGBOT_HOST_DB_PATH", "SHADOW_DB_PATH") || defaultDbPath;
 
-  const claudeModel = process.env.SHADOW_CLAUDE_MODEL?.trim() || null;
-  const logLevel = parseLogLevel(process.env.SHADOW_LOG_LEVEL);
+  const claudeModel =
+    readEnv("BUGBOT_HOST_CLAUDE_MODEL", "SHADOW_CLAUDE_MODEL") || null;
+  const logLevel = parseLogLevel(
+    readEnv("BUGBOT_HOST_LOG_LEVEL", "SHADOW_LOG_LEVEL")
+  );
   const minPrCreatedAt = parseOptionalIsoDate(
-    process.env.SHADOW_MIN_PR_CREATED_AT
+    readEnv("BUGBOT_HOST_MIN_PR_CREATED_AT", "SHADOW_MIN_PR_CREATED_AT")
   );
 
   return {
@@ -74,9 +81,21 @@ export function loadConfig(): Config {
   };
 }
 
+function readEnv(name: string, legacyName: string): string | undefined {
+  const current = process.env[name]?.trim();
+  if (current) {
+    return current;
+  }
+  const legacy = process.env[legacyName]?.trim();
+  return legacy || undefined;
+}
+
 function loadPrivateKey(): string {
-  const privateKeyPath = process.env.SHADOW_PRIVATE_KEY_PATH?.trim();
-  const privateKeyEnv = process.env.SHADOW_PRIVATE_KEY?.trim();
+  const privateKeyPath = readEnv(
+    "BUGBOT_HOST_PRIVATE_KEY_PATH",
+    "SHADOW_PRIVATE_KEY_PATH"
+  );
+  const privateKeyEnv = readEnv("BUGBOT_HOST_PRIVATE_KEY", "SHADOW_PRIVATE_KEY");
 
   if (privateKeyPath) {
     try {
@@ -84,7 +103,7 @@ function loadPrivateKey(): string {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new Error(
-        `Configuration error: Failed to read private key from SHADOW_PRIVATE_KEY_PATH="${privateKeyPath}": ${message}`
+        `Configuration error: Failed to read private key from BUGBOT_HOST_PRIVATE_KEY_PATH="${privateKeyPath}": ${message}`
       );
     }
   }
@@ -94,7 +113,7 @@ function loadPrivateKey(): string {
   }
 
   throw new Error(
-    "Configuration error: Either SHADOW_PRIVATE_KEY_PATH or SHADOW_PRIVATE_KEY must be set."
+    "Configuration error: Either BUGBOT_HOST_PRIVATE_KEY_PATH or BUGBOT_HOST_PRIVATE_KEY must be set."
   );
 }
 
@@ -122,7 +141,7 @@ function parseOptionalIsoDate(value: string | undefined): string | null {
   const parsed = Date.parse(trimmed);
   if (Number.isNaN(parsed)) {
     throw new Error(
-      `Configuration error: SHADOW_MIN_PR_CREATED_AT must be a valid ISO 8601 date, got "${value}".`
+      `Configuration error: BUGBOT_HOST_MIN_PR_CREATED_AT must be a valid ISO 8601 date, got "${value}".`
     );
   }
   return new Date(parsed).toISOString();

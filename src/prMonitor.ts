@@ -1,13 +1,14 @@
-// Discovers open pull requests that should be mirrored for Bugbot.
+// Discovers open pull requests that should be hosted for Bugbot.
 // A PR is eligible when it is open, created at or after the cutoff,
-// not a draft, not authored by SHADOW_AUTHOR_LOGIN, not a bot, and not
-// already a pr-shadow mirror.
+// not a draft, not authored by BUGBOT_HOST_AUTHOR_LOGIN, not a bot, and
+// not already a bugbot-host (or legacy pr-shadow) mirror.
 // Limitations: Draft PRs are skipped until marked ready. Historical
-//   PRs opened before the cutoff are never mirrored. Bot detection
+//   PRs opened before the cutoff are never hosted. Bot detection
 //   is login-based (`[bot]` suffix) and may miss unusual bot accounts.
 
 import {
-  MANAGED_MARKER,
+  isManagedMirrorBody,
+  isManagedMirrorBranch,
   ORIGINAL_MARKER_PREFIX,
 } from "./githubClient.js";
 import type { TrackedPullRequest } from "./types.js";
@@ -29,10 +30,10 @@ export function shouldMirrorPullRequest(
   if (isBotLogin(pr.authorLogin)) {
     return false;
   }
-  if (pr.headRef.startsWith("pr-shadow/")) {
+  if (isManagedMirrorBranch(pr.headRef)) {
     return false;
   }
-  if (pr.body.includes(ORIGINAL_MARKER_PREFIX) || pr.body.includes(MANAGED_MARKER)) {
+  if (isManagedMirrorBody(pr.body)) {
     return false;
   }
   if (isCreatedBeforeCutoff(pr, minPrCreatedAt)) {
@@ -59,6 +60,10 @@ export function isBotLogin(login: string): boolean {
 }
 
 export function buildShadowBranchName(originalPr: number): string {
+  return `bugbot-host/${originalPr}`;
+}
+
+export function buildLegacyShadowBranchName(originalPr: number): string {
   return `pr-shadow/${originalPr}`;
 }
 

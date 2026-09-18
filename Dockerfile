@@ -1,4 +1,4 @@
-# Dockerfile for pr-shadow
+# Dockerfile for bugbot-host
 # Multi-stage build: installs dependencies, builds TypeScript, then
 # runs the daemon with claude CLI and git available.
 # Uses GitHub App discovery plus a user PAT for mirror PR authorship.
@@ -37,13 +37,13 @@ RUN npm ci --omit=dev
 
 COPY --from=builder /app/dist/ ./dist/
 
-RUN git config --global user.email "pr-shadow@users.noreply.github.com" \
-  && git config --global user.name "pr-shadow"
+RUN git config --global user.email "bugbot-host@users.noreply.github.com" \
+  && git config --global user.name "bugbot-host"
 
 RUN mkdir -p /data/repos /data/db
 
-ENV SHADOW_WORK_DIR=/data/repos
-ENV SHADOW_DB_PATH=/data/db/state.db
+ENV BUGBOT_HOST_WORK_DIR=/data/repos
+ENV BUGBOT_HOST_DB_PATH=/data/db/state.db
 
 COPY entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh

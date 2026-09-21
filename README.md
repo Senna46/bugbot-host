@@ -69,7 +69,7 @@ npm start
 npm run dev
 ```
 
-### LaunchAgent on this Mac mini
+### macOS LaunchAgent
 
 ```bash
 npm run build
@@ -135,3 +135,12 @@ flowchart TD
 - The daemon never merges a hosted PR into `main` / `master`
 - Fork hosted PRs with fixes are closed so they cannot be merged into the default branch by accident
 - Closed PRs are never hosted. Already-open historical PRs are not backfilled; accidental hosted PRs of those originals are closed.
+
+## Related projects
+
+- [Fixooly](https://github.com/Senna46/fixooly) — auto-fix Cursor Bugbot findings with Claude Code
+- [refactory](https://github.com/Senna46/refactory) — weekly behavior-preserving cleanup PRs
+
+## License
+
+MIT

@@ -5,6 +5,8 @@
 // commits exist.
 // Limitations: Does not merge shadow PRs into a default branch. Fork
 //   PRs are never retargeted. Conflict resolution depends on claude -p.
+//   delivering / no_changes / fork_fixes comments are posted at most once
+//   per original PR; later retargets skip the comment.
 
 import { ConflictResolver } from "./conflictResolver.js";
 import {
@@ -27,6 +29,8 @@ import type {
   TrackedPullRequest,
 } from "./types.js";
 
+// Complete HTML comments. GitHub hides them; never append text after "-->"
+// (that would leak as visible ":sha" on the original PR).
 const COMMENT_NO_CHANGES = "<!-- BUGBOT_HOST_COMMENT: no_changes -->";
 const COMMENT_FORK_FIXES = "<!-- BUGBOT_HOST_COMMENT: fork_fixes -->";
 const COMMENT_DELIVERING = "<!-- BUGBOT_HOST_COMMENT: delivering -->";
@@ -621,12 +625,11 @@ export class ShadowManager {
       original.owner,
       original.repo,
       original.number,
-      `${COMMENT_NO_CHANGES}:${original.headSha}`,
-      [
-        `${COMMENT_NO_CHANGES}:${original.headSha}`,
+      COMMENT_NO_CHANGES,
+      buildHostComment(COMMENT_NO_CHANGES, [
         `[bugbot-host](https://github.com/Senna46/bugbot-host) mirrored this PR as #${shadowPr.number} so Cursor Bugbot could review it.`,
         "Bugbot reported no issues and the extra mirror had no additional commits, so the mirror was closed without merging.",
-      ].join("\n\n")
+      ])
     );
 
     await this.github.updatePullRequest({
@@ -686,13 +689,12 @@ export class ShadowManager {
       original.owner,
       original.repo,
       original.number,
-      `${COMMENT_DELIVERING}:${original.headSha}`,
-      [
-        `${COMMENT_DELIVERING}:${original.headSha}`,
+      COMMENT_DELIVERING,
+      buildHostComment(COMMENT_DELIVERING, [
         `[bugbot-host](https://github.com/Senna46/bugbot-host) finished Cursor Bugbot / Fixooly on a mirror of this PR.`,
         `Please review #${shadowPr.number}. Its base was changed to \`${original.headRef}\` so the extra commits (Bugbot fixes) can be merged into this branch.`,
         "**Do not merge the mirror into the repository default branch.**",
-      ].join("\n\n")
+      ])
     );
 
     this.state.upsert({
@@ -722,9 +724,8 @@ export class ShadowManager {
       original.owner,
       original.repo,
       original.number,
-      `${COMMENT_FORK_FIXES}:${original.headSha}`,
-      [
-        `${COMMENT_FORK_FIXES}:${original.headSha}`,
+      COMMENT_FORK_FIXES,
+      buildHostComment(COMMENT_FORK_FIXES, [
         `[bugbot-host](https://github.com/Senna46/bugbot-host) ran Cursor Bugbot / Fixooly on a mirror of this fork PR.`,
         `The mirror was closed so it cannot be merged into the default branch. Extra commits are on \`${record.shadowBranch}\` (see #${shadowPr.number}).`,
         "To apply those commits onto this PR branch:",
@@ -732,7 +733,7 @@ export class ShadowManager {
         `git fetch origin ${record.shadowBranch}`,
         `git merge origin/${record.shadowBranch}`,
         "```",
-      ].join("\n\n")
+      ])
     );
 
     await this.github.updatePullRequest({
@@ -785,11 +786,10 @@ export class ShadowManager {
           repo,
           shadowPr.number,
           COMMENT_TOO_OLD,
-          [
-            COMMENT_TOO_OLD,
+          buildHostComment(COMMENT_TOO_OLD, [
             "[bugbot-host](https://github.com/Senna46/bugbot-host) only hosts **newly opened** pull requests.",
             `This original (#${original.number}) was created at ${original.createdAt}, which is before the cutoff ${minPrCreatedAt}. Closing this mirror without merging.`,
-          ].join("\n\n")
+          ])
         );
         await this.github.updatePullRequest({
           owner,
@@ -854,10 +854,9 @@ export class ShadowManager {
         original.repo,
         original.number,
         COMMENT_ORIGINAL_CLOSED,
-        [
-          COMMENT_ORIGINAL_CLOSED,
+        buildHostComment(COMMENT_ORIGINAL_CLOSED, [
           `[bugbot-host](https://github.com/Senna46/bugbot-host) closed the Bugbot mirror because this PR was merged or closed.`,
-        ].join("\n\n")
+        ])
       );
     }
 
@@ -876,6 +875,9 @@ export class ShadowManager {
     marker: string,
     body: string
   ): Promise<void> {
+    // Substring match: a legacy body that concatenated ":sha" after the HTML
+    // comment still counts as already posted for delivering / no_changes /
+    // fork_fixes.
     for (const candidate of commentMarkersToMatch(marker)) {
       const already = await this.github.hasIssueCommentContaining(
         owner,
@@ -896,13 +898,12 @@ export class ShadowManager {
     mode: "merge" | "cherry-pick"
   ): Promise<void> {
     const marker = `<!-- BUGBOT_HOST_COMMENT: conflict_failed:${original.headSha} -->`;
-    const body = [
-      marker,
-      `[bugbot-host](https://github.com/Senna46/bugbot-host) failed to resolve a ${mode} conflict while syncing original PR #${original.number} (\`${original.headSha.substring(0, 10)}\`).`,
+    const body = buildHostComment(marker, [
+      `[bugbot-host](https://github.com/Senna46/bugbot-host) failed to resolve a ${mode} conflict while syncing original PR #${original.number}.`,
       "Unmerged files:",
       unmergedFiles.map((path) => `- \`${path}\``).join("\n"),
       "The sync was aborted and will be retried on the next polling cycle.",
-    ].join("\n\n");
+    ]);
 
     await this.commentOnce(
       original.owner,
@@ -998,6 +999,10 @@ function buildRecord(
 
 function nowIso(): string {
   return new Date().toISOString();
+}
+
+function buildHostComment(marker: string, paragraphs: string[]): string {
+  return [marker, ...paragraphs].join("\n\n");
 }
 
 function commentMarkersToMatch(marker: string): string[] {

@@ -5,8 +5,10 @@
 // commits exist.
 // Limitations: Does not merge shadow PRs into a default branch. Fork
 //   PRs are never retargeted. Conflict resolution depends on claude -p.
-//   delivering / no_changes / fork_fixes comments are posted at most once
-//   per original PR; later retargets skip the comment.
+//   delivering / fork_fixes comments are posted at most once per original
+//   PR, and only when fix commits exist. A clean Bugbot result closes the
+//   hosted PR without commenting. If the original is merged while findings
+//   or fix commits remain, the hosted PR stays open (kept_open).
 
 import { ConflictResolver } from "./conflictResolver.js";
 import {
@@ -31,10 +33,8 @@ import type {
 
 // Complete HTML comments. GitHub hides them; never append text after "-->"
 // (that would leak as visible ":sha" on the original PR).
-const COMMENT_NO_CHANGES = "<!-- BUGBOT_HOST_COMMENT: no_changes -->";
 const COMMENT_FORK_FIXES = "<!-- BUGBOT_HOST_COMMENT: fork_fixes -->";
 const COMMENT_DELIVERING = "<!-- BUGBOT_HOST_COMMENT: delivering -->";
-const COMMENT_ORIGINAL_CLOSED = "<!-- BUGBOT_HOST_COMMENT: original_closed -->";
 const COMMENT_TOO_OLD = "<!-- BUGBOT_HOST_COMMENT: too_old -->";
 
 export class ShadowManager {
@@ -90,7 +90,7 @@ export class ShadowManager {
     }
 
     if (original.state === "closed" || original.merged) {
-      await this.closeBecauseOriginalDone(original, record);
+      await this.handleOriginalClosed(original, record);
       return;
     }
 
@@ -143,7 +143,7 @@ export class ShadowManager {
       record.originalPr
     );
     if (!original || original.state === "closed" || original.merged) {
-      await this.closeBecauseOriginalDone(original, record);
+      await this.handleOriginalClosed(original, record);
       return;
     }
 
@@ -621,17 +621,6 @@ export class ShadowManager {
       shadowPr: shadowPr.number,
     });
 
-    await this.commentOnce(
-      original.owner,
-      original.repo,
-      original.number,
-      COMMENT_NO_CHANGES,
-      buildHostComment(COMMENT_NO_CHANGES, [
-        `[bugbot-host](https://github.com/Senna46/bugbot-host) mirrored this PR as #${shadowPr.number} so Cursor Bugbot could review it.`,
-        "Bugbot reported no issues and the extra mirror had no additional commits, so the mirror was closed without merging.",
-      ])
-    );
-
     await this.github.updatePullRequest({
       owner: original.owner,
       repo: original.repo,
@@ -817,18 +806,51 @@ export class ShadowManager {
     return this.config.minPrCreatedAt;
   }
 
-  private async closeBecauseOriginalDone(
+  private async handleOriginalClosed(
     original: TrackedPullRequest | null,
     record: ShadowRecord
   ): Promise<void> {
-    if (record.status === "closed") {
+    if (record.status === "closed" || record.status === "kept_open") {
       return;
     }
 
-    logger.info("Original PR is closed or merged. Closing shadow PR.", {
+    if (original?.merged) {
+      const action = await this.decideMergedHostedPr(original, record);
+      if (action === "wait") {
+        logger.info(
+          "Original PR was merged before Cursor Bugbot finished. Leaving the hosted PR open.",
+          {
+            repo: record.repo,
+            originalPr: record.originalPr,
+            shadowPr: record.shadowPr,
+          }
+        );
+        return;
+      }
+      if (action === "keep") {
+        logger.info(
+          "Original PR was merged with Bugbot findings or fix commits. Leaving the hosted PR open.",
+          {
+            repo: record.repo,
+            originalPr: record.originalPr,
+            shadowPr: record.shadowPr,
+          }
+        );
+        this.state.upsert({
+          ...record,
+          status: "kept_open",
+          lastError: null,
+          updatedAt: nowIso(),
+        });
+        return;
+      }
+    }
+
+    logger.info("Original PR is closed. Closing hosted PR without commenting.", {
       repo: record.repo,
       originalPr: record.originalPr,
       shadowPr: record.shadowPr,
+      merged: original?.merged ?? false,
     });
 
     if (record.shadowPr !== null) {
@@ -848,24 +870,83 @@ export class ShadowManager {
       }
     }
 
-    if (original && original.state === "closed") {
-      await this.commentOnce(
-        original.owner,
-        original.repo,
-        original.number,
-        COMMENT_ORIGINAL_CLOSED,
-        buildHostComment(COMMENT_ORIGINAL_CLOSED, [
-          `[bugbot-host](https://github.com/Senna46/bugbot-host) closed the Bugbot mirror because this PR was merged or closed.`,
-        ])
-      );
-    }
-
     this.state.upsert({
       ...record,
       status: "closed",
       lastError: null,
       updatedAt: nowIso(),
     });
+  }
+
+  private async decideMergedHostedPr(
+    original: TrackedPullRequest,
+    record: ShadowRecord
+  ): Promise<"close" | "keep" | "wait"> {
+    if (record.status === "delivering") {
+      return "keep";
+    }
+    if (record.shadowPr === null) {
+      return "close";
+    }
+
+    const shadowPr = await this.github.getPullRequest(
+      original.owner,
+      original.repo,
+      record.shadowPr
+    );
+    if (!shadowPr || shadowPr.state !== "open") {
+      return "close";
+    }
+
+    const hasFixDiff = await this.shadowHasFixDiff(original, record);
+    if (hasFixDiff) {
+      return "keep";
+    }
+
+    const bugbot = await this.github.getCursorBugbotCheck(
+      original.owner,
+      original.repo,
+      shadowPr.headSha
+    );
+    if (bugbot.status === "not_clean") {
+      return "keep";
+    }
+    if (bugbot.status === "success") {
+      return "close";
+    }
+
+    logger.info("Cursor Bugbot has not finished on the hosted PR.", {
+      repo: repoFullName(original),
+      originalPr: original.number,
+      shadowPr: shadowPr.number,
+      bugbot,
+    });
+    return "wait";
+  }
+
+  private async shadowHasFixDiff(
+    original: TrackedPullRequest,
+    record: ShadowRecord
+  ): Promise<boolean> {
+    const repoDir = await this.gitOps.ensureRepoClone(
+      original.owner,
+      original.repo
+    );
+    const originalSha = await this.gitOps.fetchOriginalPullHead(
+      repoDir,
+      original.number
+    );
+    await this.gitOps.checkoutShadowBranch(repoDir, record.shadowBranch);
+    const shadowHead = await this.gitOps.currentHeadSha(repoDir);
+    const shadowIsBehindOrEqual = await this.gitOps.isAncestor(
+      repoDir,
+      shadowHead,
+      originalSha
+    );
+    if (shadowIsBehindOrEqual) {
+      return false;
+    }
+    return this.gitOps.hasFileDiff(repoDir, originalSha, shadowHead);
   }
 
   private async commentOnce(
@@ -876,8 +957,7 @@ export class ShadowManager {
     body: string
   ): Promise<void> {
     // Substring match: a legacy body that concatenated ":sha" after the HTML
-    // comment still counts as already posted for delivering / no_changes /
-    // fork_fixes.
+    // comment still counts as already posted for delivering / fork_fixes.
     for (const candidate of commentMarkersToMatch(marker)) {
       const already = await this.github.hasIssueCommentContaining(
         owner,

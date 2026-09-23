@@ -65,6 +65,10 @@ the Senna46-authored hosted PR.
   GitHub Actions.
 - Never merge a hosted PR into a repository default branch.
 - Fork PRs are not retargeted; extras are delivered as a comment + leftover branch.
+- A clean Bugbot result closes the hosted PR and does not comment on the original.
+- If the original PR is merged while Bugbot findings or fix commits remain, leave
+  the hosted PR open and do not comment. Status `kept_open` stops further processing.
+- If the original PR is closed without merging, close the hosted PR and do not comment.
 - Only **open** PRs created at or after `minPrCreatedAt` are hosted.
   Closed PRs and already-open historical PRs are out of scope.
 - Legacy pr-shadow branch names and HTML markers must keep being recognized.

@@ -219,7 +219,7 @@ class BugbotHostDaemon {
       if (originalNumbers.has(record.originalPr)) {
         continue;
       }
-      if (record.status === "closed") {
+      if (record.status === "closed" || record.status === "kept_open") {
         continue;
       }
       try {

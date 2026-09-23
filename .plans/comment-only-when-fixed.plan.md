@@ -42,5 +42,7 @@ Original closed without merge:
 
 ## Repository exclusion
 
-`d6e-products/meikei` is never scanned. Existing hosted PRs there are left
-as they are. `BUGBOT_HOST_EXCLUDED_REPOS` adds more `owner/repo` names.
+`BUGBOT_HOST_EXCLUDED_REPOS` is a comma-separated list of `owner/repo`
+names. Those repositories are not scanned, and existing hosted PRs there
+are left as they are. The list is empty when the variable is unset.
+This machine sets `d6e-products/meikei`. Remove that name to host it again.

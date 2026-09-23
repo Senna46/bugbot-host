@@ -72,4 +72,5 @@ the Senna46-authored hosted PR.
 - Only **open** PRs created at or after `minPrCreatedAt` are hosted.
   Closed PRs and already-open historical PRs are out of scope.
 - Legacy pr-shadow branch names and HTML markers must keep being recognized.
-- `d6e-products/meikei` is always excluded. `BUGBOT_HOST_EXCLUDED_REPOS` adds more `owner/repo` names.
+- `BUGBOT_HOST_EXCLUDED_REPOS` lists `owner/repo` names that are not scanned.
+  Removing a name hosts that repository again. Unset means no exclusions.

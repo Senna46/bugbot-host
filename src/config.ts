@@ -17,10 +17,6 @@ import type { Config, LogLevel } from "./types.js";
 
 const VALID_LOG_LEVELS: LogLevel[] = ["debug", "info", "warn", "error"];
 
-// Always skipped, even when BUGBOT_HOST_EXCLUDED_REPOS is unset.
-// Extra owner/repo names in that variable are added to this list.
-const DEFAULT_EXCLUDED_REPOS = ["d6e-products/meikei"];
-
 export function loadConfig(): Config {
   dotenvConfig();
 
@@ -166,19 +162,19 @@ function parseLogLevel(value: string | undefined): LogLevel {
 }
 
 function parseExcludedRepos(value: string | undefined): string[] {
-  const fromEnv = (value ?? "")
+  const parts = (value ?? "")
     .split(",")
     .map((part) => part.trim())
     .filter((part) => part.length > 0);
-  const invalid = fromEnv.filter((name) => !/^[^/\s]+\/[^/\s]+$/.test(name));
+  const invalid = parts.filter((name) => !/^[^/\s]+\/[^/\s]+$/.test(name));
   if (invalid.length > 0) {
     throw new Error(
       `Configuration error: BUGBOT_HOST_EXCLUDED_REPOS entries must be owner/repo, got "${invalid.join(", ")}".`
     );
   }
 
-  const excluded = [...DEFAULT_EXCLUDED_REPOS];
-  for (const name of fromEnv) {
+  const excluded: string[] = [];
+  for (const name of parts) {
     const alreadyListed = excluded.some(
       (existing) => existing.toLowerCase() === name.toLowerCase()
     );

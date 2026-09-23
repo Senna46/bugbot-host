@@ -57,6 +57,8 @@ accepted. Required:
 - BUGBOT_HOST_GITHUB_TOKEN (classic PAT as Senna46)
 
 Monitored repositories are auto-discovered from the App installations.
+`d6e-products/meikei` is always excluded. `BUGBOT_HOST_EXCLUDED_REPOS`
+adds more `owner/repo` names.
 
 ## Common Tasks
 

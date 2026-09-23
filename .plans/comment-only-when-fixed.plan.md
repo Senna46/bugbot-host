@@ -39,3 +39,8 @@ Original closed without merge:
   branch `handleOriginalClosed` on merged vs unmerged
 - `src/main.ts`: skip `kept_open` records the same way as `closed`
 - README / CLAUDE.md: describe the comment and close rules
+
+## Repository exclusion
+
+`d6e-products/meikei` is never scanned. Existing hosted PRs there are left
+as they are. `BUGBOT_HOST_EXCLUDED_REPOS` adds more `owner/repo` names.

@@ -13,7 +13,7 @@ Cursor Bugbot on an Individual plan only reviews pull requests you author. PRs o
 ## What it does
 
 1. Discovers repositories from the same GitHub App installations as Fixooly
-2. For each **open, recently created**, non-draft PR authored by someone other than Senna46, creates a hosted PR. Closed PRs and PRs that were already open before bugbot-host started are ignored, and accidental historical hosted PRs are closed.
+2. For each **open, recently created**, non-draft PR authored by someone other than Senna46, creates a hosted PR. Closed PRs and PRs that were already open before bugbot-host started are ignored, and accidental historical hosted PRs are closed. `d6e-products/meikei` is never scanned.
 3. Syncs later original commits onto the hosted branch (resolves conflicts with `claude -p`)
 4. Waits until the GitHub check **Cursor Bugbot** is `success` on the hosted HEAD (GitHub Actions is ignored)
 5. Then:
@@ -112,6 +112,7 @@ Optional:
 - `BUGBOT_HOST_DB_PATH` (default `~/.bugbot-host/state.db`)
 - `BUGBOT_HOST_CLAUDE_MODEL`
 - `BUGBOT_HOST_LOG_LEVEL`
+- `BUGBOT_HOST_EXCLUDED_REPOS` (extra `owner/repo` names; `d6e-products/meikei` is always excluded)
 
 ## Architecture
 

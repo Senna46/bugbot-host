@@ -17,6 +17,10 @@ import type { Config, LogLevel } from "./types.js";
 
 const VALID_LOG_LEVELS: LogLevel[] = ["debug", "info", "warn", "error"];
 
+// Always skipped, even when BUGBOT_HOST_EXCLUDED_REPOS is unset.
+// Extra owner/repo names in that variable are added to this list.
+const DEFAULT_EXCLUDED_REPOS = ["d6e-products/meikei"];
+
 export function loadConfig(): Config {
   dotenvConfig();
 
@@ -66,6 +70,9 @@ export function loadConfig(): Config {
   const minPrCreatedAt = parseOptionalIsoDate(
     readEnv("BUGBOT_HOST_MIN_PR_CREATED_AT", "SHADOW_MIN_PR_CREATED_AT")
   );
+  const excludedRepos = parseExcludedRepos(
+    readEnv("BUGBOT_HOST_EXCLUDED_REPOS", "SHADOW_EXCLUDED_REPOS")
+  );
 
   return {
     appId,
@@ -78,6 +85,7 @@ export function loadConfig(): Config {
     claudeModel,
     logLevel,
     minPrCreatedAt,
+    excludedRepos,
   };
 }
 
@@ -155,4 +163,28 @@ function parseLogLevel(value: string | undefined): LogLevel {
     );
   }
   return level;
+}
+
+function parseExcludedRepos(value: string | undefined): string[] {
+  const fromEnv = (value ?? "")
+    .split(",")
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0);
+  const invalid = fromEnv.filter((name) => !/^[^/\s]+\/[^/\s]+$/.test(name));
+  if (invalid.length > 0) {
+    throw new Error(
+      `Configuration error: BUGBOT_HOST_EXCLUDED_REPOS entries must be owner/repo, got "${invalid.join(", ")}".`
+    );
+  }
+
+  const excluded = [...DEFAULT_EXCLUDED_REPOS];
+  for (const name of fromEnv) {
+    const alreadyListed = excluded.some(
+      (existing) => existing.toLowerCase() === name.toLowerCase()
+    );
+    if (!alreadyListed) {
+      excluded.push(name);
+    }
+  }
+  return excluded;
 }

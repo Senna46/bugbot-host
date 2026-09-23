@@ -21,6 +21,7 @@ export interface Config {
   claudeModel: string | null;
   logLevel: LogLevel;
   minPrCreatedAt: string | null;
+  excludedRepos: string[];
 }
 
 export type LogLevel = "debug" | "info" | "warn" | "error";

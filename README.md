@@ -2,7 +2,7 @@
 
 Daemon that hosts other people's GitHub pull requests as Senna46-authored PRs so [Cursor Bugbot](https://cursor.com/docs/bugbot) can review them.
 
-After Bugbot and [Fixooly](https://github.com/Senna46/fixooly) finish with no issues, extra commits are delivered back to the original PR. **Never merge a bugbot-host PR into a repository default branch.**
+When Bugbot finds issues and [Fixooly](https://github.com/Senna46/fixooly) commits fixes, those commits are delivered back to the original PR. A clean Bugbot result closes the hosted PR without commenting on the original. **Never merge a bugbot-host PR into a repository default branch.**
 
 Formerly named pr-shadow. Existing `pr-shadow/*` branches and `PR_SHADOW_*` markers are still recognized so old hosted PRs are not processed twice.
 
@@ -13,15 +13,15 @@ Cursor Bugbot on an Individual plan only reviews pull requests you author. PRs o
 ## What it does
 
 1. Discovers repositories from the same GitHub App installations as Fixooly
-2. For each **open, recently created**, non-draft PR authored by someone other than Senna46, creates a hosted PR. Closed PRs and PRs that were already open before bugbot-host started are ignored, and accidental historical hosted PRs are closed.
+2. For each **open, recently created**, non-draft PR authored by someone other than Senna46, creates a hosted PR. Closed PRs, PRs that were already open before bugbot-host started, and repositories listed in `BUGBOT_HOST_EXCLUDED_REPOS` are ignored. Accidental historical hosted PRs are closed.
 3. Syncs later original commits onto the hosted branch (resolves conflicts with `claude -p`)
 4. Waits until the GitHub check **Cursor Bugbot** is `success` on the hosted HEAD (GitHub Actions is ignored)
 5. Then:
-   - **No extra commits:** close the hosted PR
-   - **Same-repo PR with extra commits:** change the hosted PR base to the original head branch and request review from the original author
+   - **No extra commits:** close the hosted PR. Do not comment on the original PR
+   - **Same-repo PR with extra commits:** change the hosted PR base to the original head branch, request review from the original author, and comment once on the original PR
    - **Fork PR with extra commits:** close the hosted PR (keep the branch) and comment on the original PR with fetch/merge instructions
 6. If the original PR gets more commits after delivery, hosting returns so Bugbot runs again
-7. If the original PR is merged or closed, the hosted PR is closed
+7. If the original PR is **merged** while Bugbot reported issues or fix commits exist, leave the hosted PR open and do not comment. If Bugbot is clean and there are no fix commits, close the hosted PR without commenting. If the original PR is **closed without merging**, close the hosted PR without commenting
 
 ## Prerequisites
 
@@ -112,6 +112,7 @@ Optional:
 - `BUGBOT_HOST_DB_PATH` (default `~/.bugbot-host/state.db`)
 - `BUGBOT_HOST_CLAUDE_MODEL`
 - `BUGBOT_HOST_LOG_LEVEL`
+- `BUGBOT_HOST_EXCLUDED_REPOS` (comma-separated `owner/repo`; those repositories are not scanned. Remove a name to host it again)
 
 ## Architecture
 
@@ -124,7 +125,7 @@ flowchart TD
   Create --> Sync[Sync later original commits]
   Sync --> Bugbot{Cursor Bugbot check success?}
   Bugbot -->|no| Wait[Wait for next cycle]
-  Bugbot -->|yes empty diff| Close[Close hosted PR]
+  Bugbot -->|yes empty diff| Close[Close hosted PR without commenting]
   Bugbot -->|yes same-repo extras| Retarget[Retarget base to original head and request review]
   Bugbot -->|yes fork extras| Comment[Close hosted PR and comment on original]
 ```

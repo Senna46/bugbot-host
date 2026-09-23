@@ -57,6 +57,8 @@ accepted. Required:
 - BUGBOT_HOST_GITHUB_TOKEN (classic PAT as Senna46)
 
 Monitored repositories are auto-discovered from the App installations.
+`BUGBOT_HOST_EXCLUDED_REPOS` is a comma-separated list of `owner/repo`
+names that are not scanned. Remove a name to host that repository again.
 
 ## Common Tasks
 

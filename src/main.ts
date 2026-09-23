@@ -44,6 +44,7 @@ class BugbotHostDaemon {
       authorLogin: this.config.authorLogin,
       pollInterval: this.config.pollInterval,
       claudeModel: this.config.claudeModel ?? "(default)",
+      excludedRepos: this.config.excludedRepos,
     });
 
     await this.verifyPrerequisites();
@@ -149,11 +150,24 @@ class BugbotHostDaemon {
     logger.info("Starting polling cycle...");
 
     const repos = await this.github.listAccessibleRepos();
-    logger.info(`Scanning ${repos.length} repo(s) for PRs to mirror.`);
+    const excludedCount = repos.filter((repo) =>
+      this.isExcludedRepository(repo.owner, repo.name)
+    ).length;
+    logger.info(
+      `Scanning ${repos.length - excludedCount} repo(s) for PRs to mirror.`,
+      { excludedCount, excludedRepos: this.config.excludedRepos }
+    );
 
     for (const repo of repos) {
       if (this.isShuttingDown) {
         break;
+      }
+      if (this.isExcludedRepository(repo.owner, repo.name)) {
+        logger.debug("Skipping excluded repository.", {
+          owner: repo.owner,
+          repo: repo.name,
+        });
+        continue;
       }
       try {
         await this.processRepository(repo.owner, repo.name);
@@ -166,6 +180,13 @@ class BugbotHostDaemon {
         });
       }
     }
+  }
+
+  private isExcludedRepository(owner: string, repo: string): boolean {
+    const fullName = `${owner}/${repo}`.toLowerCase();
+    return this.config.excludedRepos.some(
+      (excluded) => excluded.toLowerCase() === fullName
+    );
   }
 
   private async processRepository(owner: string, repo: string): Promise<void> {
@@ -219,7 +240,7 @@ class BugbotHostDaemon {
       if (originalNumbers.has(record.originalPr)) {
         continue;
       }
-      if (record.status === "closed") {
+      if (record.status === "closed" || record.status === "kept_open") {
         continue;
       }
       try {

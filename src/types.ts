@@ -2,7 +2,9 @@
 // Defines configuration, GitHub PR metadata, shadow tracking records,
 // and Bugbot check results.
 // Limitations: ShadowStatus values are stored in SQLite as strings
-//   and must stay in sync with StateStore writes.
+//   and must stay in sync with StateStore writes. kept_open means the
+//   original PR was merged while Bugbot findings or fix commits still
+//   exist, so the hosted PR stays open and is not processed again.
 
 // ============================================================
 // Configuration
@@ -19,6 +21,7 @@ export interface Config {
   claudeModel: string | null;
   logLevel: LogLevel;
   minPrCreatedAt: string | null;
+  excludedRepos: string[];
 }
 
 export type LogLevel = "debug" | "info" | "warn" | "error";
@@ -71,6 +74,7 @@ export type ShadowStatus =
   | "delivering"
   | "fork_notified"
   | "closed_no_changes"
+  | "kept_open"
   | "closed";
 
 export interface ShadowRecord {
